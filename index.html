@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>QVA Services Status</title>
+<style>
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+* {
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+body {
+    font-family: 'JetBrains Mono', monospace;
+    background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+    color: #e8e8e8;
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+    padding: 3rem;
+}
+
+.container {
+    max-width: 600px;
+    margin: 0 auto;
+    color: #e8e8e8;
+}
+
+.stat-item {
+    margin-bottom: 1.8rem;
+}
+
+.bar {
+    display: flex;
+    gap: 6px;
+    flex: 1;
+    height: 22px;
+    border-radius: 6px;
+}
+
+.bar-segment {
+    flex: 1;
+    background: #444;
+    border-radius: 6px;
+    transition: background 0.3s ease, transform 0.3s ease;
+    cursor: default;
+}
+
+.bar-segment.filled {
+    background: #00d26a;
+}
+
+.bar-segment:hover {
+    transform: translateY(-5px);
+}
+
+.site-name {
+    font-weight: 600;
+    margin-bottom: 6px;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.percent-text {
+    width: 50px;
+    text-align: right;
+    font-weight: 500;
+    margin-left: 12px;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.last-checked {
+    font-size: 0.9rem;
+    color: #999;
+    margin-top: 4px;
+    font-family: 'JetBrains Mono', monospace;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1 style="margin-bottom: 2rem;">👋 QVA Services Status</h1>
+  <div id="status-container"></div>
+</div>
+
+<script>
+  const sites = [
+    { name: 'bio.qva.monster', url: 'https://bio.qva.monster', interval: 20 * 60 * 1000 },
+    { name: 'main.qva.monster', url: 'https://main.qva.monster', interval: 30 * 60 * 1000 },
+    { name: 'api.qva.monster', url: 'https://api.qva.monster', interval: 30 * 60 * 1000 } 
+  ];
+
+  const MAX_HISTORY = 30;
+
+  const statusContainer = document.getElementById('status-container');
+
+  const statusList = sites.map(site => ({
+    ...site,
+    history: [],
+    lastChecked: null
+  }));
+
+  async function checkStatus(index) {
+    const site = statusList[index];
+    try {
+      await fetch(site.url, { method: 'GET', mode: 'no-cors' });
+      updateHistory(site, true);
+    } catch {
+      updateHistory(site, false);
+    }
+    render();
+  }
+
+  function updateHistory(site, online) {
+    site.history.push(online);
+    if(site.history.length > MAX_HISTORY) site.history.shift();
+    site.lastChecked = new Date();
+  }
+
+  function renderBar(history) {
+    const total = history.length;
+    const onlineCount = history.filter(Boolean).length;
+    const percent = total > 0 ? Math.round((onlineCount / total) * 100) : 100;
+    let segments = '';
+    for(let i=0; i<10; i++) {
+      segments += `<div class="bar-segment${i < Math.round(percent / 10) ? ' filled' : ''}" title="${percent}%"></div>`;
+    }
+    return { segments, percent };
+  }
+
+  function render() {
+    statusContainer.innerHTML = '';
+
+    statusList.forEach(site => {
+      const { segments, percent } = renderBar(site.history);
+      const timeText = site.lastChecked ? `Last checked: ${site.lastChecked.toLocaleTimeString('en-US', {hour12: false})}` : 'Not checked yet';
+
+      const siteDiv = document.createElement('div');
+      siteDiv.className = 'stat-item';
+
+      siteDiv.innerHTML = `
+        <div class="site-name">${site.name}</div>
+        <div style="display: flex; align-items: center;">
+          <div class="bar">${segments}</div>
+          <div class="percent-text">${percent}%</div>
+        </div>
+        <div class="last-checked">${timeText}</div>
+      `;
+
+      statusContainer.appendChild(siteDiv);
+    });
+  }
+
+  sites.forEach((_, i) => {
+    checkStatus(i);
+    setInterval(() => checkStatus(i), statusList[i].interval);
+  });
+</script>
+
+</body>
+</html>
